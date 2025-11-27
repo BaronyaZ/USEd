@@ -110,7 +110,8 @@
 
   <script>
     // ======= ตั้งค่า URL API ที่นี่ =======
-    const API_URL = "http://192.168.4.1/api/command"; // <--- แก้เป็น IP ของ ESP32 หรือ endpoint ของคุณ
+    // แก้เป็น IP ของ ESP32 ของคุณ (จาก Serial Monitor)
+    const API_URL = "http://10.217.231.115/api/command"; // <-- ตั้งค่าเป็น IP ที่คุณให้มา
 
     let currentSpeed = 60; // ค่าเริ่มต้น 0-100
     let joystickInterval = null;
