@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>โปรเจ็คสั่งกดน้ำ & บังคับรถ (Joystick)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{min-height:100vh;background:#0f172a;color:#e5e7eb;display:flex;justify-content:center;align-items:flex-start;padding:20px}
+    .app{width:100%;max-width:900px;background:#020617;border-radius:20px;padding:24px;box-shadow:0 20px 40px rgba(0,0,0,0.5);border:1px solid #1f2937}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:10px}
+    .title{font-size:1.4rem;font-weight:700}
+    .subtitle{font-size:0.9rem;color:#9ca3af}
+    .status-indicator{font-size:0.8rem;padding:6px 10px;border-radius:999px;background:#111827;border:1px solid #374151}
+    .status-dot{display:inline-block;width:8px;height:8px;border-radius:999px;background:#f97316;margin-right:6px}
+    .grid{display:flex;gap:16px;flex-wrap:wrap}
+    .card{flex:1 1 320px;background:#020617;border-radius:16px;border:1px solid #1f2937;padding:16px 16px 18px}
+    .card h2{font-size:1.1rem;margin-bottom:4px}
+    .card p{font-size:0.85rem;color:#9ca3af;margin-bottom:12px}
+    .section-label{font-size:0.8rem;color:#9ca3af;margin-bottom:6px}
+    .btn{border:none;border-radius:999px;padding:8px 14px;font-size:0.9rem;cursor:pointer;background:#1d4ed8;color:white;margin-right:6px;margin-bottom:6px;transition:transform .08s ease,box-shadow .08s ease;background 0.12s;box-shadow:0 6px 14px rgba(37,99,235,0.4)}
+    .btn.secondary{background:#111827;color:#e5e7eb;box-shadow:none;border:1px solid #374151}
+    .btn.danger{background:#b91c1c;box-shadow:0 6px 14px rgba(185,28,28,0.4)}
+    .btn:active{transform:translateY(1px) scale(.97);box-shadow:0 3px 7px rgba(0,0,0,.4)}
+    .center-label{font-size:0.7rem;color:#9ca3af;text-align:center;margin-bottom:8px}
+    .log-box{margin-top:14px;font-size:0.8rem;background:#020617;border-radius:10px;border:1px solid #111827;padding:8px 10px;max-height:160px;overflow-y:auto}
+    .log-line{margin-bottom:4px;color:#9ca3af}
+    .log-line span.time{color:#6b7280;margin-right:4px}
+    .log-line.ok{color:#22c55e}
+    .log-line.err{color:#f97316}
+    .water-options{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+    .water-custom{display:flex;align-items:center;gap:6px;margin:4px 0 8px;font-size:0.8rem}
+    .water-custom input{width:70px;padding:4px 6px;border-radius:999px;border:1px solid #374151;background:#020617;color:#e5e7eb;font-size:0.8rem;outline:none}
+    .footer{margin-top:18px;font-size:0.7rem;text-align:right;color:#6b7280}
+    /* Joystick */
+    .joystick-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+    .joy-area{position:relative;width:220px;height:220px;border-radius:50%;background:linear-gradient(180deg,#0b1220,#07121a);border:2px solid #1f2937;display:flex;align-items:center;justify-content:center;touch-action:none}
+    .joy-grid{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;pointer-events:none}
+    .knob{position:absolute;width:80px;height:80px;border-radius:50%;background:#1d4ed8;border:6px solid rgba(255,255,255,0.06);box-shadow:0 8px 20px rgba(29,78,216,0.24);touch-action:none;display:flex;align-items:center;justify-content:center;font-weight:700}
+    .stop-big{padding:12px 18px;border-radius:12px;background:#b91c1c;color:white;border:none;font-weight:700;box-shadow:0 8px 20px rgba(185,28,28,0.18);cursor:pointer}
+    .speed-controls{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+    @media(max-width:640px){.joy-area{width:180px;height:180px}.knob{width:72px;height:72px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div>
+        <div class="title">โปรเจ็คสั่งกดน้ำ & บังคับรถ</div>
+        <div class="subtitle">หน้าเว็บสำหรับควบคุมบอร์ด/หุ่นยนต์ของคุณ — แบบจอยสติก</div>
+      </div>
+      <div class="status-indicator" id="connectionStatus">
+        <span class="status-dot" id="statusDot"></span>
+        สถานะ: ยังไม่เชื่อมต่อ
+      </div>
+    </header>
+
+    <main class="grid">
+      <!-- สั่งกดน้ำ (ไม่เปลี่ยน) -->
+      <section class="card">
+        <h2>สั่งกดน้ำ 💧</h2>
+        <p>เลือกปริมาณน้ำที่ต้องการ หรือระบุเอง แล้วกดปุ่มเพื่อสั่งงานไปยังบอร์ด</p>
+
+        <div class="section-label">ปริมาณแบบด่วน</div>
+        <div class="water-options">
+          <button class="btn" onclick="sendWaterPreset(50)">50 ml</button>
+          <button class="btn" onclick="sendWaterPreset(100)">100 ml</button>
+          <button class="btn" onclick="sendWaterPreset(200)">200 ml</button>
+        </div>
+
+        <div class="water-custom">
+          <span>กำหนดเอง:</span>
+          <input type="number" id="waterAmountInput" min="1" max="1000" placeholder="เช่น 150" />
+          <span>ml</span>
+          <button class="btn secondary" onclick="sendCustomWater()">สั่งกด</button>
+        </div>
+
+        <button class="btn danger" onclick="sendWaterStop()">หยุดการกด</button>
+
+        <div class="log-box" id="waterLog"></div>
+      </section>
+
+      <!-- บังคับรถ (จอยสติก) -->
+      <section class="card">
+        <h2>บังคับรถ (จอยสติก) 🚗</h2>
+        <p>ลากจอยสติกเพื่อกำหนดทิศทางและความเร็ว — ปล่อยเพื่อหยุด หรือกดปุ่ม STOP</p>
+
+        <div class="joystick-wrap">
+          <div class="joy-area" id="joyArea" aria-label="joystick area">
+            <div class="joy-grid"></div>
+            <div class="knob" id="knob">●</div>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:center;">
+            <div class="speed-controls">
+              <button class="btn secondary" onclick="setSpeed(30)">ช้า</button>
+              <button class="btn secondary" onclick="setSpeed(60)">ปานกลาง</button>
+              <button class="btn secondary" onclick="setSpeed(100)">เร็ว</button>
+            </div>
+            <button class="stop-big" id="bigStop" onclick="manualStop()">STOP</button>
+          </div>
+        </div>
+
+        <div class="log-box" id="driveLog"></div>
+      </section>
+    </main>
+
+    <footer class="footer">* หมายเหตุ: แก้ค่า <code>API_URL</code> ใน JavaScript ให้ตรงกับบอร์ด/เซิร์ฟเวอร์ของคุณ</footer>
+  </div>
+
+  <script>
+    // ======= ตั้งค่า URL API ที่นี่ =======
+    const API_URL = "http://192.168.4.1/api/command"; // <--- แก้เป็น IP ของ ESP32 หรือ endpoint ของคุณ
+
+    let currentSpeed = 60; // ค่าเริ่มต้น 0-100
+    let joystickInterval = null;
+    let joystickActive = false;
+    let lastSent = 0;
+
+    // ---------- HTTP helper ----------
+    async function sendCommand(type, payload = {}) {
+      const timestamp = new Date().toLocaleTimeString();
+      const body = { type, ...payload };
+
+      try {
+        updateStatus("กำลังส่งคำสั่ง...", "orange");
+
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) throw new Error("HTTP " + res.status);
+
+        const data = await res.json().catch(() => ({}));
+        updateStatus("เชื่อมต่อสำเร็จ", "green");
+        return { ok: true, data, time: timestamp };
+      } catch (err) {
+        updateStatus("เชื่อมต่อไม่สำเร็จ / ไม่มี API", "orange");
+        return { ok: false, error: err.message, time: timestamp };
+      }
+    }
+
+    function updateStatus(text, color = "orange") {
+      const statusDiv = document.getElementById("connectionStatus");
+      const dot = document.getElementById("statusDot");
+      // replace text after dot
+      statusDiv.lastChild.textContent = " " + text;
+      dot.style.background = color === "green" ? "#22c55e" : color === "red" ? "#b91c1c" : "#f97316";
+    }
+
+    function appendLog(elementId, message, status = "normal") {
+      const box = document.getElementById(elementId);
+      const div = document.createElement("div");
+      div.classList.add("log-line");
+      if (status === "ok") div.classList.add("ok");
+      if (status === "err") div.classList.add("err");
+
+      const timeSpan = document.createElement("span");
+      timeSpan.classList.add("time");
+      timeSpan.textContent = "[" + new Date().toLocaleTimeString() + "] ";
+
+      div.appendChild(timeSpan);
+      div.appendChild(document.createTextNode(message));
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // ---------- Water functions (unchanged) ----------
+    async function sendWaterPreset(amountMl) {
+      appendLog("waterLog", `ส่งคำสั่งกดน้ำ ${amountMl} ml ...`);
+      const result = await sendCommand("water_dispense", { amount_ml: amountMl });
+      if (result.ok) appendLog("waterLog", `สำเร็จ: กำลังกดน้ำ ${amountMl} ml`, "ok");
+      else appendLog("waterLog", `ผิดพลาด: ${result.error || "ไม่ทราบสาเหตุ"}`, "err");
+    }
+
+    async function sendCustomWater() {
+      const input = document.getElementById("waterAmountInput");
+      const value = parseInt(input.value, 10);
+      if (isNaN(value) || value <= 0) { appendLog("waterLog", "กรุณากรอกปริมาณน้ำเป็นตัวเลขมากกว่า 0", "err"); return; }
+      await sendWaterPreset(value);
+    }
+
+    async function sendWaterStop() {
+      appendLog("waterLog", "ส่งคำสั่งหยุดการกด...");
+      const result = await sendCommand("water_stop");
+      if (result.ok) appendLog("waterLog", "หยุดการกดเรียบร้อย", "ok");
+      else appendLog("waterLog", `ผิดพลาด: ${result.error || "ไม่ทราบสาเหตุ"}`, "err");
+    }
+
+    // ---------- Drive / Joystick ----------
+    function setSpeed(v) {
+      currentSpeed = v;
+      appendLog("driveLog", `ตั้งค่าความเร็ว: ${v}%`, "ok");
+    }
+
+    async function sendDrive(direction, speed = currentSpeed, extra = {}) {
+      appendLog("driveLog", `สั่งรถ: ${direction} (${speed}%) ...`);
+      const result = await sendCommand("drive", { direction, speed, ...extra });
+      if (result.ok) appendLog("driveLog", `สำเร็จ: ${direction}`, "ok");
+      else appendLog("driveLog", `ผิดพลาด: ${result.error || "ไม่ทราบสาเหตุ"}`, "err");
+    }
+
+    function manualStop() {
+      // ส่ง stop ทันที
+      appendLog("driveLog", "สั่งหยุด (STOP) ...");
+      sendDrive("stop", 0);
+      // reset knob
+      resetKnob();
+    }
+
+    // ---------- Joystick logic ----------
+    const joyArea = document.getElementById("joyArea");
+    const knob = document.getElementById("knob");
+    const areaRect = () => joyArea.getBoundingClientRect();
+    const maxRadius = () => areaRect().width / 2 - knob.offsetWidth / 2;
+
+    let origin = { x: 0, y: 0 };
+    let pointerId = null;
+
+    function toLocal(e) {
+      const r = areaRect();
+      let clientX, clientY;
+      if (e.touches && e.touches[0]) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+      else { clientX = e.clientX; clientY = e.clientY; }
+      return { x: clientX - r.left - r.width / 2, y: clientY - r.top - r.height / 2 };
+    }
+
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+
+    function setKnobPos(dx, dy) {
+      const maxR = maxRadius();
+      const dist = Math.hypot(dx, dy);
+      const factor = dist > maxR ? maxR / dist : 1;
+      const nx = dx * factor;
+      const ny = dy * factor;
+      knob.style.transform = `translate(${nx}px, ${ny}px)`;
+    }
+
+    function resetKnob() {
+      knob.style.transform = `translate(0px, 0px)`;
+      joystickActive = false;
+      stopJoystickInterval();
+    }
+
+    function startJoystickInterval(getPayload) {
+      stopJoystickInterval();
+      joystickInterval = setInterval(() => {
+        // throttle to 80-150ms by timestamp as well (avoid spamming)
+        const now = Date.now();
+        if (now - lastSent < 80) return;
+        lastSent = now;
+        const p = getPayload();
+        if (p.active) {
+          sendDrive(p.direction, p.speed, { x: p.x || 0, y: p.y || 0 });
+        } else {
+          sendDrive("stop", 0);
+        }
+      }, 120);
+    }
+
+    function stopJoystickInterval() {
+      if (joystickInterval) { clearInterval(joystickInterval); joystickInterval = null; }
+    }
+
+    function computeDirectionAndSpeed(dx, dy) {
+      // dx,right +, dy,down +
+      const dist = Math.hypot(dx, dy);
+      const maxR = maxRadius();
+      const norm = clamp(dist / maxR, 0, 1);
+      const speed = Math.round(currentSpeed * norm);
+
+      // angle in degrees (0 = right, 90 = down)
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      // map to 8 directions
+      // right: -22..22, down-right:23..67, down:68..112, down-left:113..157,
+      // left:158..-158, up-left:-157..-113, up:-112..-68, up-right:-67..-23
+      let dir = "stop";
+      if (norm < 0.15) dir = "stop";
+      else if (angle >= -22 && angle <= 22) dir = "right";
+      else if (angle > 22 && angle <= 67) dir = "down-right";
+      else if (angle > 67 && angle <= 112) dir = "down";
+      else if (angle > 112 && angle <= 157) dir = "down-left";
+      else if (angle > 157 || angle <= -157) dir = "left";
+      else if (angle > -157 && angle <= -112) dir = "up-left";
+      else if (angle > -112 && angle <= -67) dir = "up";
+      else if (angle > -67 && angle < -22) dir = "up-right";
+
+      return { direction: dir, speed, x: Math.round(dx), y: Math.round(dy), active: dir !== "stop" };
+    }
+
+    // Pointer / touch handlers
+    function onStart(e) {
+      e.preventDefault();
+      joystickActive = true;
+      const p = toLocal(e);
+      setKnobPos(p.x, p.y);
+      startJoystickInterval(() => computeDirectionAndSpeed(p.x, p.y));
+      // for continuous updates, replace getPayload closure on move
+      pointerId = (e.pointerId !== undefined) ? e.pointerId : null;
+    }
+
+    function onMove(e) {
+      if (!joystickActive) return;
+      e.preventDefault();
+      const p = toLocal(e);
+      setKnobPos(p.x, p.y);
+      // update interval payload by swapping closure:
+      // We'll stop and restart interval with updated closure (cheap)
+      startJoystickInterval(() => computeDirectionAndSpeed(p.x, p.y));
+    }
+
+    function onEnd(e) {
+      e && e.preventDefault();
+      resetKnob();
+      // send stop immediately
+      sendDrive("stop", 0);
+    }
+
+    // attach events: touch + mouse
+    joyArea.addEventListener("touchstart", (e) => onStart(e), { passive: false });
+    joyArea.addEventListener("touchmove", (e) => onMove(e), { passive: false });
+    joyArea.addEventListener("touchend", (e) => onEnd(e));
+    joyArea.addEventListener("mousedown", (e) => { onStart(e); window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onEnd, { once: true }); });
+    joyArea.addEventListener("mouseup", onEnd);
+
+    // Keyboard fallback: WASD / Space => map to directions
+    window.addEventListener("keydown", function(e) {
+      const key = e.key.toLowerCase();
+      if (["w","a","s","d"," "].includes(key)) e.preventDefault();
+      switch(key) {
+        case "w": sendDrive("up", currentSpeed); break;
+        case "s": sendDrive("down", currentSpeed); break;
+        case "a": sendDrive("left", currentSpeed); break;
+        case "d": sendDrive("right", currentSpeed); break;
+        case " ": manualStop(); break;
+      }
+    });
+
+    // Cleanup on page hide
+    window.addEventListener("blur", () => { manualStop(); });
+
+    // initial status
+    updateStatus("ยังไม่เชื่อมต่อ", "orange");
+  </script>
+</body>
+</html>
